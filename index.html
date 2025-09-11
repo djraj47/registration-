@@ -166,7 +166,7 @@
     <h2>BGMI Tournament</h2>
     <div>
       <a href="index.html">Home</a>
-      <a href="data.html">View Teams</a>
+      <a href="view-teams.html">View Teams</a>
     </div>
   </div>
 
@@ -208,7 +208,7 @@
     <button onclick="addTeam()">Register Team</button>
 
     <!-- Extra button -->
-    <button onclick="window.location.href='view-teams.html'">View Registered Teams</button>
+    <button onclick="window.location.href='data.html'">View Registered Teams</button>
   </div>
 
   <!-- Popup -->
@@ -272,16 +272,30 @@
     gSel.addEventListener("change", updateTeamDropdown)
 
     async function addTeam() {
+      // Validate inputs
+      const team_name = document.getElementById("team_name").value.trim()
+      const player1 = document.getElementById("player1").value.trim()
+      const player2 = document.getElementById("player2").value.trim()
+      const player3 = document.getElementById("player3").value.trim()
+      const player4 = document.getElementById("player4").value.trim()
+      const contact_no = document.getElementById("contact_no").value.trim()
+      const email = document.getElementById("email").value.trim()
+
+      if (!team_name || !player1 || !player2 || !player3 || !player4 || !contact_no || !email) {
+        showPopup("⚠️ Please fill in all fields before submitting!", "error")
+        return
+      }
+
       const data = {
         group_no: parseInt(gSel.value),
         team_no: parseInt(tSel.value),
-        team_name: document.getElementById("team_name").value,
-        player1: document.getElementById("player1").value,
-        player2: document.getElementById("player2").value,
-        player3: document.getElementById("player3").value,
-        player4: document.getElementById("player4").value,
-        contact_no: document.getElementById("contact_no").value,
-        email: document.getElementById("email").value,
+        team_name,
+        player1,
+        player2,
+        player3,
+        player4,
+        contact_no,
+        email,
       }
 
       const { error } = await supabase.from("teams").insert([data])
@@ -296,6 +310,7 @@
         showPopup("✅ Team registered successfully!", "success")
         await loadAvailableSlots()
 
+        // Clear form fields
         document.getElementById("team_name").value = ""
         document.getElementById("player1").value = ""
         document.getElementById("player2").value = ""
