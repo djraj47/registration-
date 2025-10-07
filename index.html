@@ -244,7 +244,7 @@
 
       for (let g = 1; g <= 15; g++) {
         let groupFull = true
-        for (let t = 1; t <= 20; t++) {
+        for (let t = 1; t <= 23; t++) {
           if (!used.has(`${g}-${t}`)) groupFull = false
         }
         if (!groupFull) {
@@ -262,7 +262,7 @@
 
       const usedTeams = new Set(teams.map(t => t.team_no))
       tSel.innerHTML = ""
-      for (let t = 1; t <= 20; t++) {
+      for (let t = 1; t <= 23; t++) {
         if (!usedTeams.has(t)) {
           tSel.innerHTML += `<option value="${t}">${t}</option>`
         }
@@ -327,3 +327,4 @@
 </body>
 
 </html>
+
