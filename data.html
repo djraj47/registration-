@@ -165,12 +165,53 @@
         .home-btn:hover {
             background: #117a8b;
         }
+
+        /* Search bar styles */
+        .search-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .search-container input {
+            width: 280px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin-right: 10px;
+            transition: all 0.3s;
+        }
+
+        .search-container input:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 6px rgba(0, 123, 255, 0.3);
+        }
+
+        .search-container button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 8px;
+            background: #28a745;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .search-container button:hover {
+            background: #218838;
+        }
     </style>
 </head>
 
 <body>
     <div style="text-align:center; margin-bottom:20px;">
         <button class="home-btn" id="home-btn">🏠 Home</button>
+    </div>
+
+    <div class="search-container">
+        <input type="text" id="search-input" placeholder="Search by team name or contact">
+        <button id="clear-search">❌ Clear</button>
     </div>
 
     <h1>Teams by Group (Manage)</h1>
@@ -190,8 +231,11 @@
         const container = document.getElementById("cards-container")
         const backBtn = document.getElementById("back-btn")
         const popup = document.getElementById("popup")
+        const searchInput = document.getElementById("search-input")
+        const clearSearchBtn = document.getElementById("clear-search")
 
         let currentGroup = null
+        let searchTimeout = null
 
         function showPopup(message, type = "success") {
             popup.textContent = message
@@ -199,7 +243,6 @@
             setTimeout(() => popup.classList.remove("show"), 3000)
         }
 
-        // Step 1: Show all groups
         async function loadGroups() {
             currentGroup = null
             backBtn.style.display = "none"
@@ -217,44 +260,51 @@
             })
         }
 
-        // Step 2: Show teams in a group
         async function loadTeams(group) {
             currentGroup = group
             backBtn.style.display = "block"
             const { data: teams, error } = await supabase.from("teams").select("*").eq("group_no", group)
             if (error) return showPopup("❌ Failed to load teams: " + error.message, "error")
 
+            displayTeams(teams)
+        }
+
+        function displayTeams(teams) {
             container.innerHTML = ""
+            if (!teams || teams.length === 0) {
+                container.innerHTML = "<p style='text-align:center; color:#777;'>No teams found.</p>"
+                return
+            }
+
             teams.forEach(team => {
                 const card = document.createElement("div")
                 card.className = "card"
                 card.innerHTML = `
           <h2>${team.team_name}</h2>
           <div class="team-info"><span>Team No:</span> ${team.team_no}</div>
+          <div class="team-info"><span>Contact:</span> ${team.contact_no || "N/A"}</div>
           <div class="team-actions">
             <button class="edit-btn">Edit</button>
             <button class="delete-btn">Delete</button>
           </div>
         `
 
-                // Edit functionality
                 card.querySelector(".edit-btn").addEventListener("click", async () => {
                     card.innerHTML = `
             <h2>Edit Team ${team.team_no}</h2>
-            <input type="text" placeholder="Team Name" value="${team.team_name}" class="edit-team_name">
-            <input type="text" placeholder="Player 1" value="${team.player1}" class="edit-player1">
-            <input type="text" placeholder="Player 2" value="${team.player2}" class="edit-player2">
-            <input type="text" placeholder="Player 3" value="${team.player3}" class="edit-player3">
-            <input type="text" placeholder="Player 4" value="${team.player4}" class="edit-player4">
-            <input type="text" placeholder="Contact" value="${team.contact_no}" class="edit-contact">
-            <input type="email" placeholder="Email" value="${team.email}" class="edit-email">
+            <input type="text" value="${team.team_name}" class="edit-team_name">
+            <input type="text" value="${team.player1}" class="edit-player1">
+            <input type="text" value="${team.player2}" class="edit-player2">
+            <input type="text" value="${team.player3}" class="edit-player3">
+            <input type="text" value="${team.player4}" class="edit-player4">
+            <input type="text" value="${team.contact_no}" class="edit-contact">
+            <input type="email" value="${team.email}" class="edit-email">
             <div class="team-actions">
               <button class="save-btn">Save</button>
               <button class="delete-btn">Delete</button>
             </div>
           `
 
-                    // Save edited team
                     card.querySelector(".save-btn").addEventListener("click", async () => {
                         const updatedData = {
                             team_name: card.querySelector(".edit-team_name").value,
@@ -269,16 +319,13 @@
                         const { error } = await supabase.from("teams").update(updatedData).eq("group_no", team.group_no).eq("team_no", team.team_no)
                         if (error) return showPopup("❌ Update failed: " + error.message, "error")
                         showPopup("✅ Team updated successfully!", "success")
-                        loadTeams(currentGroup)
+                        currentGroup ? loadTeams(currentGroup) : searchTeams(searchInput.value)
                     })
 
-                    // Delete button inside edit form
                     card.querySelector(".delete-btn").addEventListener("click", () => deleteTeam(team.group_no, team.team_no))
                 })
 
-                // Delete functionality
                 card.querySelector(".delete-btn").addEventListener("click", () => deleteTeam(team.group_no, team.team_no))
-
                 container.appendChild(card)
             })
         }
@@ -288,17 +335,47 @@
             const { error } = await supabase.from("teams").delete().eq("group_no", group_no).eq("team_no", team_no)
             if (error) return showPopup("❌ Delete failed: " + error.message, "error")
             showPopup("✅ Team deleted!", "success")
-            loadTeams(currentGroup)
+            currentGroup ? loadTeams(currentGroup) : searchTeams(searchInput.value)
         }
 
         backBtn.addEventListener("click", () => loadGroups())
 
+        // 🔍 Live search feature
+        async function searchTeams(query) {
+            const trimmed = query.trim()
+            if (!trimmed) {
+                loadGroups()
+                return
+            }
+
+            backBtn.style.display = "block"
+            currentGroup = null
+
+            const { data: teams, error } = await supabase
+                .from("teams")
+                .select("*")
+                .or(`team_name.ilike.%${trimmed}%,contact_no.ilike.%${trimmed}%`)
+
+            if (error) return showPopup("❌ Search failed: " + error.message, "error")
+
+            displayTeams(teams)
+        }
+
+        searchInput.addEventListener("input", () => {
+            clearTimeout(searchTimeout)
+            searchTimeout = setTimeout(() => searchTeams(searchInput.value), 400)
+        })
+
+        clearSearchBtn.addEventListener("click", () => {
+            searchInput.value = ""
+            loadGroups()
+        })
+
         loadGroups()
 
         document.getElementById("home-btn").addEventListener("click", () => {
-            window.location.href = "index.html"; // replace with your home/registration page URL
+            window.location.href = "index.html"
         });
-
     </script>
 </body>
 
